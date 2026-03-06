@@ -351,7 +351,7 @@ Retorne APENAS JSON válido, sem markdown:
   ]
 }`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("https://reels-generator.lmchenrique.workers.dev", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user", content:prompt }] }),
@@ -392,7 +392,7 @@ Retorne APENAS JSON válido:
   "fechamento": "fala completa com CTA único integrado naturalmente"
 }`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("https://reels-generator.lmchenrique.workers.dev", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user", content:prompt }] }),
@@ -435,7 +435,7 @@ Retorne APENAS JSON válido:
   "blocos_alterados": ["lista dos blocos reescritos"]
 }`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("https://reels-generator.lmchenrique.workers.dev", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user", content:prompt }] }),
