@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arch Brands · Gerador de Reels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0F0D0A; }
+  body { overflow-x: hidden; }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: #B89A58; border-radius: 2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+  .slide-down { animation: slideDown 0.35s ease forwards; }
+  button { cursor: pointer; transition: opacity 0.2s, background 0.2s, border-color 0.2s, color 0.2s; }
+  button:hover { opacity: 0.88; }
+  textarea, input { transition: border-color 0.2s; }
+  textarea:focus, input:focus { outline: none; border-color: #B89A58 !important; }
+  ::placeholder { color: #B8AE98 !important; opacity: 0.85; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect, useRef } = React;
+
+// ─── Design Tokens ─────────────────────────────────────────────────────────────
+const AB = {
+  bg:          "#0F0D0A",
+  bgCard:      "#1C1914",
+  bgHover:     "#262218",
+  gold:        "#D9C27A",
+  goldDim:     "#B89A58",
+  goldPale:    "rgba(217,194,122,0.16)",
+  goldBorder:  "rgba(217,194,122,0.45)",
+  cream:       "#FAF6EC",
+  creamDim:    "#E8E0CC",
+  creamMute:   "#B8AE98",
+  creamGhost:  "rgba(250,246,236,0.40)",
+  divider:     "rgba(217,194,122,0.30)",
+  danger:      "#D94F4F",
+  dangerBg:    "rgba(217,79,79,0.12)",
+  dangerBorder:"rgba(217,79,79,0.4)",
+  success:     "#5A9668",
+  successBg:   "rgba(90,150,104,0.12)",
+  successBorder:"rgba(90,150,104,0.4)",
+  fontSerif:   "'Cormorant Garamond', Georgia, serif",
+  fontSans:    "'Jost', system-ui, sans-serif",
+  fontMono:    "'DM Mono', 'Courier New', monospace",
+};
+
+const AIDA_COLORS = {
+  abertura:        { accent: "#D9C27A", dim: "rgba(217,194,122,0.12)", border: "rgba(217,194,122,0.4)" },
+  desenvolvimento: { accent: "#9EB88A", dim: "rgba(158,184,138,0.12)", border: "rgba(158,184,138,0.4)" },
+  fechamento:      { accent: "#8AB3CC", dim: "rgba(138,179,204,0.12)", border: "rgba(138,179,204,0.4)" },
+};
+
+const FORMATS = [
+  { id: "historia",     label: "História Pessoal",  desc: "Uma vivência real sua ou do cliente" },
+  { id: "lista",        label: "Lista de Dicas",    desc: "X coisas que você precisa saber sobre Y" },
+  { id: "antes_depois", label: "Antes e Depois",    desc: "Transformação ou comparação" },
+  { id: "erro",         label: "Erro Comum",        desc: "Coisas que [perfil] faz errado" },
+  { id: "provocacao",   label: "Provocação",        desc: "Opinião polêmica ou contracorrente" },
+  { id: "espelho",      label: "História Espelho",  desc: "Algo que o público viveu mas nunca falou" },
+  { id: "bastidores",   label: "Bastidores",        desc: "Como algo é feito por dentro" },
+  { id: "resultado",    label: "Resultado / Prova", desc: "Vendemos X, fizemos Y, conquistamos Z" },
+];
+
+const CTAS = [
+  "Salvar o vídeo","Comentar uma palavra","Seguir o perfil",
+  "Clicar no link da bio","Compartilhar com alguém","Responder nos comentários",
+  "Enviar mensagem direta","Ver próximo vídeo",
+];
+
+const CHECKLIST_ITEMS = [
+  { id:"scroll_stop",       text:"Se eu não fosse do público-alvo, eu assistiria esse vídeo?",                         tip:"Se a resposta for \"talvez\", revise o início.",                                                bloco:"abertura",        instrucao:"A abertura não é forte o suficiente para parar o scroll. Reescreva a abertura para abrir uma lacuna mental imediatamente, com emoção carregada desde a primeira frase." },
+  { id:"abertura_impacto",  text:"A abertura para o scroll nos primeiros 3 segundos sem ser genérica?",                 tip:"Proibido: \"Olá\", \"E aí pessoal\", \"Hoje vou falar\". Começa com impacto.",                   bloco:"abertura",        instrucao:"A abertura está genérica. Reescreva com emoção, provoque curiosidade imediata ou mostre algo inesperado." },
+  { id:"ritmo",             text:"O desenvolvimento tem ritmo dinâmico — tela muda a cada 2–3 segundos?",               tip:"Indicações de tela, texto, imagem — o cérebro precisa ser mantido agitado.",                     bloco:"desenvolvimento", instrucao:"O desenvolvimento está lento demais. Reescreva quebrando em trechos curtos com indicações de tela entre parênteses a cada 2-3 segundos." },
+  { id:"tangibilizacao",    text:"O desenvolvimento tangibiliza — mostra visualmente o que está sendo falado?",         tip:"Falou algo → mostra a imagem do que está falando. Tangibilização é prova.",                      bloco:"desenvolvimento", instrucao:"O desenvolvimento está abstrato. Reescreva adicionando indicações explícitas do que mostrar na tela para cada ponto." },
+  { id:"espelho",           text:"Tem história espelho — o público pensa \"isso sou eu\" e fica até o fim?",            tip:"Coisas que o público já pensou ou vivenciou mas não costuma falar sobre.",                       bloco:"desenvolvimento", instrucao:"Está faltando história espelho. Insira um momento de identificação profunda — algo que o público já pensou mas nunca viu alguém falar." },
+  { id:"emocao",            text:"Existe recompensa emocional clara? (insight, identificação, surpresa, alívio)",       tip:"Sem emoção = sem retenção. Vídeos com +70% de retenção viralizam muito mais.",                    bloco:"desenvolvimento", instrucao:"O roteiro está faltando recompensa emocional. Reescreva para entregar insight, identificação, humor ou surpresa de forma clara." },
+  { id:"prova_promessa",    text:"O miolo do vídeo prova que a promessa da abertura vale o tempo da pessoa?",           tip:"O desenvolvimento é a prova. Se não entrega, perde no meio.",                                    bloco:"desenvolvimento", instrucao:"O desenvolvimento não está cumprindo a promessa da abertura. Reescreva para que entregue concretamente o que a abertura prometeu." },
+  { id:"cta",               text:"O CTA diz claramente o próximo passo e pede uma única ação?",                        tip:"Uma ação só. CTA como continuação natural do valor entregue.",                                   bloco:"fechamento",      instrucao:"O CTA está confuso ou múltiplo. Reescreva o fechamento com um único CTA claro, integrado naturalmente como extensão do valor entregue." },
+];
+
+const METODOLOGIA = `
+METODOLOGIA COMPLETA — REELS QUE FUNCIONAM
+
+PRINCÍPIO CENTRAL:
+Reels é sobre RETER ATENÇÃO DO INÍCIO AO FIM. Vídeos com mais de 70% de retenção têm muito mais chance de viralizar.
+
+ERROS FATAIS A EVITAR:
+- Copiar trends sem adaptar para o contexto da marca
+- Explicar demais — roteiro longo, didático, sem ritmo
+- Aberturas genéricas: "Olá", "E aí pessoal", "Hoje vou falar sobre"
+- Vídeo sem emoção — se não tem emoção, não tem retenção
+
+ESTRUTURA AIDA PARA REELS:
+A — ATENÇÃO (primeiros 2-3 segundos): abertura carregada de emoção — curiosidade, choque, identificação, provocação.
+I — INTERESSE: ritmo (tela muda a cada 2-3s), tangibilização, história espelho.
+D — DESEJO: entregar o valor da promessa.
+A — AÇÃO: um único CTA como continuação natural do que foi entregue.
+`;
+
+// ─── UI Components ─────────────────────────────────────────────────────────────
+
+function Divider() {
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:12, margin:"0 0 24px" }}>
+      <div style={{ flex:1, height:1, background:AB.divider }} />
+      <div style={{ width:4, height:4, borderRadius:"50%", background:AB.gold, opacity:0.5 }} />
+      <div style={{ flex:1, height:1, background:AB.divider }} />
+    </div>
+  );
+}
+
+function StepIndicator({ current }) {
+  const steps = [{ id:"contexto", label:"Contexto" },{ id:"roteiro", label:"Roteiro" },{ id:"checklist", label:"Checklist" }];
+  const ci = steps.findIndex(s => s.id === current);
+  return (
+    <div style={{ display:"flex", alignItems:"center", marginBottom:44 }}>
+      {steps.map((s, i) => (
+        <div key={s.id} style={{ display:"flex", alignItems:"center", flex:1 }}>
+          <div style={{
+            width:34, height:34, borderRadius:"50%", flexShrink:0,
+            background: i < ci ? AB.gold : "transparent",
+            border: `1.5px solid ${i <= ci ? AB.gold : AB.divider}`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:11, fontWeight:600, letterSpacing:"0.05em",
+            color: i < ci ? AB.bg : i === ci ? AB.gold : AB.creamMute,
+            fontFamily:AB.fontMono,
+          }}>{i < ci ? "✓" : i+1}</div>
+          <div style={{ marginLeft:10, flex:1 }}>
+            <div style={{
+              fontSize:12, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase",
+              color: i === ci ? AB.gold : i < ci ? AB.goldDim : AB.creamGhost,
+              fontFamily:AB.fontMono,
+            }}>{s.label}</div>
+          </div>
+          {i < steps.length-1 && (
+            <div style={{ width:24, height:1, background: i < ci ? AB.goldDim : AB.divider, flexShrink:0, marginRight:10 }} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionLabel({ number, children }) {
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
+      <span style={{ fontSize:13, fontWeight:700, color:AB.gold, letterSpacing:"0.14em", fontFamily:AB.fontMono, textTransform:"uppercase", whiteSpace:"nowrap" }}>
+        {number ? `${number} ·` : ""} {children}
+      </span>
+      <div style={{ flex:1, height:1, background:AB.divider }} />
+    </div>
+  );
+}
+
+function Tag({ children, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      padding:"7px 14px", borderRadius:2,
+      border: active ? `1px solid ${AB.gold}` : `1px solid ${AB.divider}`,
+      background: active ? AB.goldPale : "transparent",
+      color: active ? AB.gold : AB.creamDim,
+      fontSize:14, fontWeight: active ? 600 : 500,
+      fontFamily:AB.fontSans, letterSpacing:"0.03em",
+    }}>{children}</button>
+  );
+}
+
+function TextInput({ label, placeholder, value, onChange, multiline, hint, rows }) {
+  const base = {
+    width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${AB.divider}`,
+    borderRadius:2, padding:"13px 15px", color:AB.cream, fontSize:15,
+    fontFamily:AB.fontSans, resize: multiline ? "vertical" : "none",
+    minHeight: multiline ? (rows ? rows*22+26 : 80) : "auto",
+    boxSizing:"border-box", lineHeight:1.6,
+  };
+  return (
+    <div style={{ marginBottom:22 }}>
+      <label style={{ display:"block", fontSize:12, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:AB.gold, marginBottom:8, fontFamily:AB.fontMono }}>{label}</label>
+      {multiline
+        ? <textarea style={base} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} rows={rows||3} />
+        : <input style={base} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />}
+      {hint && <p style={{ fontSize:12, color:AB.creamMute, marginTop:6, fontFamily:AB.fontSans, fontStyle:"italic", lineHeight:1.5, margin:"6px 0 0" }}>{hint}</p>}
+    </div>
+  );
+}
+
+function Card({ children, style={} }) {
+  return (
+    <div style={{ background:AB.bgCard, border:`1px solid ${AB.divider}`, borderRadius:2, padding:28, marginBottom:16, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function PrimaryButton({ onClick, disabled, loading, loadingText, children }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      width:"100%", padding:"17px 24px", borderRadius:2, border:`1px solid ${AB.gold}`,
+      background: disabled ? "transparent" : AB.goldPale,
+      color: disabled ? AB.goldDim : AB.gold,
+      fontSize:13, fontWeight:600, cursor: disabled ? "not-allowed" : "pointer",
+      letterSpacing:"0.1em", textTransform:"uppercase", fontFamily:AB.fontSans,
+      display:"flex", alignItems:"center", justifyContent:"center", gap:10,
+    }}>
+      {loading
+        ? <><div style={{ width:14, height:14, border:`1.5px solid ${AB.goldDim}`, borderTopColor:AB.gold, borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />{loadingText}</>
+        : children}
+    </button>
+  );
+}
+
+function ScriptBlock({ label, accentKey, icon, content, onEdit, highlight }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(content);
+  const prev = useRef(content);
+  if (content !== prev.current) { setVal(content); prev.current = content; }
+  const save = () => { onEdit(val); setEditing(false); };
+  const cancel = () => { setVal(content); setEditing(false); };
+  const col = AIDA_COLORS[accentKey] || AIDA_COLORS.abertura;
+  return (
+    <div style={{
+      borderRadius:2, padding:"20px 24px", marginBottom:14,
+      background: highlight ? col.dim : "rgba(255,255,255,0.02)",
+      border: `1px solid ${highlight ? col.accent+"55" : col.border}`,
+      position:"relative", overflow:"hidden",
+    }}>
+      <div style={{ position:"absolute", top:0, left:0, width:2, height:"100%", background:col.accent, opacity: highlight ? 1 : 0.5 }} />
+      {highlight && (
+        <div style={{ position:"absolute", top:10, right:14, fontSize:9, fontWeight:700, color:col.accent, fontFamily:AB.fontMono, letterSpacing:"0.12em", background:col.dim, padding:"3px 10px", border:`1px solid ${col.accent}44` }}>ATUALIZADO ✦</div>
+      )}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:15 }}>{icon}</span>
+          <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", color:col.accent, fontFamily:AB.fontMono }}>{label}</span>
+        </div>
+        {!editing
+          ? <button onClick={() => setEditing(true)} style={{ padding:"3px 12px", background:"transparent", border:`1px solid ${AB.divider}`, color:AB.creamMute, fontSize:10, fontFamily:AB.fontMono, letterSpacing:"0.08em" }}>EDITAR</button>
+          : <div style={{ display:"flex", gap:8 }}>
+              <button onClick={cancel} style={{ padding:"3px 12px", background:"transparent", border:`1px solid ${AB.divider}`, color:AB.creamMute, fontSize:10, fontFamily:AB.fontMono }}>CANCELAR</button>
+              <button onClick={save} style={{ padding:"3px 12px", background:col.dim, border:`1px solid ${col.accent}55`, color:col.accent, fontSize:10, fontWeight:700, fontFamily:AB.fontMono }}>SALVAR</button>
+            </div>}
+      </div>
+      {editing
+        ? <textarea value={val} onChange={e => setVal(e.target.value)} style={{ width:"100%", background:"rgba(255,255,255,0.03)", border:`1px solid ${AB.divider}`, borderRadius:2, padding:"12px 14px", color:AB.cream, fontSize:14, lineHeight:1.8, fontFamily:AB.fontSans, resize:"vertical", minHeight:120, boxSizing:"border-box" }} />
+        : <p style={{ fontSize:16, lineHeight:1.9, color:AB.cream, margin:0, fontFamily:AB.fontSans, whiteSpace:"pre-line" }}>{val}</p>}
+    </div>
+  );
+}
+
+function CheckItem({ item, answer, onChange }) {
+  const answered = answer !== null;
+  const isNo = answer === false;
+  return (
+    <div style={{
+      padding:"16px 20px", marginBottom:8,
+      background: answered ? (isNo ? AB.dangerBg : AB.successBg) : "rgba(255,255,255,0.02)",
+      border: `1px solid ${answered ? (isNo ? AB.dangerBorder : AB.successBorder) : AB.divider}`,
+    }}>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16 }}>
+        <div style={{ flex:1 }}>
+          <p style={{ margin:0, fontSize:15, color:AB.cream, fontFamily:AB.fontSans, lineHeight:1.55, fontWeight:600 }}>{item.text}</p>
+          {item.tip && <p style={{ margin:"5px 0 0", fontSize:13, color:AB.creamMute, fontFamily:AB.fontSans, fontStyle:"italic" }}>{item.tip}</p>}
+          {isNo && <div style={{ marginTop:8 }}><span style={{ fontSize:12, color:AB.danger, fontFamily:AB.fontMono, letterSpacing:"0.08em", fontWeight:700 }}>✦ BLOCO "{item.bloco.toUpperCase()}" SERÁ REVISADO</span></div>}
+        </div>
+        <div style={{ display:"flex", gap:6, flexShrink:0, marginTop:2 }}>
+          <button onClick={() => onChange(true)} style={{ width:56, height:34, border:`1px solid ${answer===true ? AB.success : AB.divider}`, background: answer===true ? AB.successBg : "transparent", color: answer===true ? "#5A9668" : AB.creamMute, fontSize:11, fontWeight:700, fontFamily:AB.fontMono, letterSpacing:"0.06em" }}>SIM</button>
+          <button onClick={() => onChange(false)} style={{ width:56, height:34, border:`1px solid ${answer===false ? AB.danger : AB.divider}`, background: answer===false ? AB.dangerBg : "transparent", color: answer===false ? AB.danger : AB.creamMute, fontSize:11, fontWeight:700, fontFamily:AB.fontMono, letterSpacing:"0.06em" }}>NÃO</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IdeaCard({ idea, index, selected, onSelect }) {
+  return (
+    <div onClick={() => onSelect(idea)} style={{
+      padding:"18px 20px", cursor:"pointer",
+      background: selected ? AB.goldPale : "rgba(255,255,255,0.02)",
+      border: `1px solid ${selected ? AB.gold+"88" : AB.divider}`,
+      position:"relative", transition:"all 0.25s",
+    }}>
+      {selected && (
+        <div style={{ position:"absolute", top:12, right:14, width:20, height:20, borderRadius:"50%", background:AB.gold, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <span style={{ color:AB.bg, fontSize:10, fontWeight:700 }}>✓</span>
+        </div>
+      )}
+      <div style={{ marginBottom:8 }}>
+        <span style={{ fontSize:9, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color: selected ? AB.gold : AB.goldDim, fontFamily:AB.fontMono, background:AB.goldPale, padding:"3px 8px", border:`1px solid ${AB.divider}` }}>
+          {idea.formato_label} · #{index+1}
+        </span>
+      </div>
+      <p style={{ margin:"0 0 6px", fontSize:15, fontWeight:600, color: selected ? AB.gold : AB.cream, fontFamily:AB.fontSans, lineHeight:1.4, paddingRight: selected ? 28 : 0 }}>{idea.titulo}</p>
+      <p style={{ margin:"0 0 12px", fontSize:13, color:AB.creamMute, fontFamily:AB.fontSans, lineHeight:1.55 }}>{idea.descricao}</p>
+      <div style={{ padding:"10px 12px", background:"rgba(0,0,0,0.2)", border:`1px solid ${AB.divider}` }}>
+        <span style={{ fontSize:9, fontWeight:700, color:AB.gold, fontFamily:AB.fontMono, letterSpacing:"0.1em" }}>ABERTURA SUGERIDA</span>
+        <p style={{ margin:"6px 0 0", fontSize:13, color:AB.creamDim, fontFamily:AB.fontSans, fontStyle:"italic", lineHeight:1.55 }}>"{idea.abertura_sugerida}"</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── API Calls ─────────────────────────────────────────────────────────────────
+
+async function gerarSugestoes(data) {
+  const prompt = `Você é especialista em conteúdo para Instagram, treinado na metodologia de Reels de alto engajamento.
+
+Com base no contexto abaixo, gere 4 sugestões de ideias de Reels diferentes e complementares entre si.
+
+CONTEXTO:
+- Nicho: ${data.niche || "não informado"}
+- Marca: ${data.brand || "não informado"}
+- Narrador: ${data.narrator || "o próprio criador"}
+- Público-alvo: ${data.audience || "não informado"}
+- CTA desejado: ${data.cta}
+- Objetivo de negócio: ${data.ctaDetail || "não informado"}
+
+METODOLOGIA:
+- Reels é sobre reter atenção do início ao fim
+- Use história espelho (algo que o público viveu mas não costuma falar)
+- Tangibilização: ideias concretas, visuais, específicas
+- Formatos: historia, lista, antes_depois, erro, provocacao, espelho, bastidores, resultado
+
+Retorne APENAS JSON válido, sem markdown:
+{
+  "sugestoes": [
+    {
+      "formato_id": "historia",
+      "formato_label": "História Pessoal",
+      "titulo": "título curto e impactante",
+      "descricao": "descrição em 2-3 frases",
+      "abertura_sugerida": "frase de abertura pronta para os primeiros 3 segundos",
+      "emocao": "qual emoção central esse vídeo entrega"
+    }
+  ]
+}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user", content:prompt }] }),
+  });
+  const json = await res.json();
+  const raw = (json.content||[]).map(b => b.text||"").join("").replace(/```json|```/g,"").trim();
+  return JSON.parse(raw);
+}
+
+async function gerarRoteiro(data) {
+  const formatLabel = FORMATS.find(f => f.id===data.format)?.label || data.format;
+  const prompt = `Você é um especialista em roteiros de Reels para Instagram.
+
+${METODOLOGIA}
+
+Crie um roteiro COMPLETO e PRONTO PARA GRAVAR. Nenhuma lacuna, nenhum placeholder.
+
+CONTEXTO:
+- Nicho: ${data.niche || "não informado"}
+- Marca: ${data.brand || "não informado"}
+- Narrador: ${data.narrator || "o próprio criador"}
+- Público-alvo: ${data.audience || "não informado"}
+- Ideia central: ${data.idea}
+- Formato: ${formatLabel}
+- Recompensa emocional: ${data.emotion || "insight genuíno e identificação"}
+- CTA principal: ${data.cta}
+- Objetivo de negócio: ${data.ctaDetail || "não informado"}
+
+ABERTURA: primeiros 2-3 segundos, emoção desde a primeira palavra, proibido saudações.
+DESENVOLVIMENTO: trechos CURTOS, indicação de tela entre parênteses a cada 2-3 segundos, tangibilização e história espelho.
+FECHAMENTO: recompensa emocional + único CTA integrado naturalmente.
+
+Retorne APENAS JSON válido:
+{
+  "titulo": "título interno descritivo",
+  "abertura": "fala completa de abertura pronta para gravar",
+  "desenvolvimento": "fala completa com indicações de tela entre parênteses a cada 2-3 segundos",
+  "fechamento": "fala completa com CTA único integrado naturalmente"
+}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user", content:prompt }] }),
+  });
+  const json = await res.json();
+  const raw = (json.content||[]).map(b => b.text||"").join("").replace(/```json|```/g,"").trim();
+  return JSON.parse(raw);
+}
+
+async function revisarRoteiro(script, data, failedItems) {
+  const formatLabel = FORMATS.find(f => f.id===data.format)?.label || data.format;
+  const byBloco = {};
+  failedItems.forEach(item => { if (!byBloco[item.bloco]) byBloco[item.bloco]=[]; byBloco[item.bloco].push(item.instrucao); });
+  const blocos = Object.entries(byBloco).map(([bloco,instrucoes]) =>
+    `BLOCO: ${bloco.toUpperCase()}\nProblemas:\n${instrucoes.map((ins,i) => `${i+1}. ${ins}`).join("\n")}`
+  ).join("\n\n");
+
+  const prompt = `Você é especialista em roteiros de Reels.
+
+${METODOLOGIA}
+
+CONTEXTO: Nicho: ${data.niche}. Marca: ${data.brand}. Público: ${data.audience}. Ideia: ${data.idea}. Formato: ${formatLabel}. CTA: ${data.cta}.
+
+ROTEIRO ATUAL:
+ABERTURA: ${script.abertura}
+DESENVOLVIMENTO: ${script.desenvolvimento}
+FECHAMENTO: ${script.fechamento}
+
+BLOCOS COM FALHAS:
+${blocos}
+
+Reescreva APENAS os blocos com falhas. Mantenha os demais idênticos.
+
+Retorne APENAS JSON válido:
+{
+  "titulo": "${script.titulo}",
+  "abertura": "revisado ou idêntico",
+  "desenvolvimento": "revisado ou idêntico",
+  "fechamento": "revisado ou idêntico",
+  "blocos_alterados": ["lista dos blocos reescritos"]
+}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user", content:prompt }] }),
+  });
+  const json = await res.json();
+  const raw = (json.content||[]).map(b => b.text||"").join("").replace(/```json|```/g,"").trim();
+  return JSON.parse(raw);
+}
+
+// ─── Main App ──────────────────────────────────────────────────────────────────
+
+const EMPTY = { niche:"", brand:"", narrator:"", audience:"", idea:"", format:"historia", emotion:"", cta:"Clicar no link da bio", ctaDetail:"" };
+
+function App() {
+  const [stage, setStage] = useState("contexto");
+  const [data, setData] = useState(EMPTY);
+  const [script, setScript] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [revising, setRevising] = useState(false);
+  const [error, setError] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [updatedBlocks, setUpdatedBlocks] = useState([]);
+  const [suggestions, setSuggestions] = useState(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const set = (k,v) => setData(p => ({...p,[k]:v}));
+  const setScriptField = (k,v) => setScript(p => ({...p,[k]:v}));
+  const setAnswer = (id,val) => setAnswers(p => ({...p,[id]:val}));
+
+  const allAnswered = useMemo(() => CHECKLIST_ITEMS.every(i => answers[i.id] !== undefined), [answers]);
+  const failedItems = useMemo(() => CHECKLIST_ITEMS.filter(i => answers[i.id]===false), [answers]);
+  const canRevise = allAnswered && failedItems.length > 0;
+  const allPassed = allAnswered && failedItems.length === 0;
+  const answeredCount = Object.keys(answers).length;
+  const progressPct = Math.round((answeredCount/CHECKLIST_ITEMS.length)*100);
+  const contextReady = data.niche.trim().length > 0 || data.audience.trim().length > 0;
+
+  const fetchSuggestions = async () => {
+    setLoadingSuggestions(true); setError(null); setSelectedSuggestion(null);
+    try {
+      const result = await gerarSugestoes(data);
+      setSuggestions(result.sugestoes); setShowSuggestions(true);
+    } catch { setError("Não foi possível gerar sugestões. Verifique sua conexão."); }
+    finally { setLoadingSuggestions(false); }
+  };
+
+  const applySuggestion = (suggestion) => {
+    setSelectedSuggestion(suggestion);
+    set("idea", `${suggestion.titulo}\n\n${suggestion.descricao}`);
+    set("format", suggestion.formato_id);
+    set("emotion", suggestion.emocao);
+  };
+
+  const useOwnIdea = () => {
+    setSelectedSuggestion(null); setShowSuggestions(false); set("idea","");
+  };
+
+  const generate = async () => {
+    if (!data.idea.trim()) { setError("Descreva a ideia central do vídeo antes de continuar."); return; }
+    setError(null); setLoading(true);
+    try {
+      const s = await gerarRoteiro(data);
+      setScript(s); setAnswers({}); setUpdatedBlocks([]); setStage("roteiro");
+    } catch { setError("Não foi possível gerar o roteiro. Verifique sua conexão."); }
+    finally { setLoading(false); }
+  };
+
+  const revise = async () => {
+    if (!script || !failedItems.length) return;
+    setRevising(true); setError(null);
+    try {
+      const revised = await revisarRoteiro(script, data, failedItems);
+      setScript(revised);
+      setUpdatedBlocks(revised.blocos_alterados || failedItems.map(i => i.bloco));
+      const newAnswers = {...answers};
+      failedItems.forEach(item => { delete newAnswers[item.id]; });
+      setAnswers(newAnswers); setStage("roteiro");
+    } catch { setError("Erro ao revisar o roteiro. Tente novamente."); }
+    finally { setRevising(false); }
+  };
+
+  const reset = () => {
+    setStage("contexto"); setScript(null); setError(null); setData(EMPTY);
+    setAnswers({}); setUpdatedBlocks([]); setSuggestions(null);
+    setSelectedSuggestion(null); setShowSuggestions(false);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:AB.bg, fontFamily:AB.fontSans }}>
+      {/* ── Header ── */}
+      <div style={{ borderBottom:`1px solid ${AB.divider}`, padding:"16px 0", background:AB.bg, position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ maxWidth:700, margin:"0 auto", padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+          <div>
+            <div style={{ fontSize:19, fontWeight:600, color:AB.gold, letterSpacing:"0.06em", fontFamily:AB.fontSerif, fontStyle:"italic" }}>Arch Brands</div>
+            <div style={{ fontSize:10, color:AB.creamMute, fontFamily:AB.fontMono, letterSpacing:"0.16em", textTransform:"uppercase", marginTop:1 }}>Gerador de Reels · Método AIDA</div>
+          </div>
+          <div style={{ display:"flex", gap:2 }}>
+            {["contexto","roteiro","checklist"].map(s => (
+              <button key={s} onClick={() => setStage(s)} style={{
+                padding:"6px 14px", fontSize:10, fontWeight:600, letterSpacing:"0.1em",
+                background: stage===s ? AB.goldPale : "transparent",
+                border: stage===s ? `1px solid ${AB.goldDim}` : `1px solid transparent`,
+                color: stage===s ? AB.gold : AB.creamMute,
+                textTransform:"uppercase", fontFamily:AB.fontMono,
+              }}>{s}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth:700, margin:"0 auto", padding:"44px 24px 100px" }}>
+        <StepIndicator current={stage} />
+
+        {/* ══ CONTEXTO ══ */}
+        {stage==="contexto" && (
+          <div className="fade-up">
+            <div style={{ marginBottom:36 }}>
+              <p style={{ fontSize:9, fontWeight:600, color:AB.gold, letterSpacing:"0.18em", textTransform:"uppercase", margin:"0 0 10px", fontFamily:AB.fontMono }}>Identidade · Roteiro · Resultado</p>
+              <h1 style={{ fontSize:36, fontWeight:400, color:AB.cream, letterSpacing:"-0.01em", margin:"0 0 10px", fontFamily:AB.fontSerif, fontStyle:"italic", lineHeight:1.15 }}>Conte sobre seu contexto</h1>
+              <Divider />
+              <p style={{ fontSize:14, color:AB.creamDim, margin:0, lineHeight:1.75 }}>A IA aplica a metodologia completa — ritmo, tangibilização, história espelho — e escreve um roteiro pronto para gravar, sem lacunas.</p>
+            </div>
+
+            <Card>
+              <SectionLabel number="01">Sua Marca</SectionLabel>
+              <TextInput label="Nicho / Segmento" placeholder="Ex: Mobiliário de alto padrão para arquitetos e incorporadores" value={data.niche} onChange={v => { set("niche",v); setSuggestions(null); setShowSuggestions(false); setSelectedSuggestion(null); }} />
+              <TextInput label="Nome da marca ou empresa" placeholder="Ex: ArboREAL, Doimo Brasil, Arch Brands" value={data.brand} onChange={v => set("brand",v)} />
+              <TextInput label="Quem fala no vídeo?" placeholder="Ex: Eu mesmo, o fundador, a personagem 'A Arquiteta'" value={data.narrator} onChange={v => set("narrator",v)} />
+              <TextInput label="Público-alvo — seja específico" placeholder="Ex: Arquitetos e proprietários de imóveis premium que buscam peças únicas com identidade" value={data.audience} onChange={v => { set("audience",v); setSuggestions(null); setShowSuggestions(false); setSelectedSuggestion(null); }} multiline rows={3} hint="Quanto mais específico, mais a história espelho vai acertar." />
+            </Card>
+
+            <Card>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:22 }}>
+                <span style={{ fontSize:10, fontWeight:600, color:AB.gold, letterSpacing:"0.14em", fontFamily:AB.fontMono, textTransform:"uppercase" }}>02 · Seu Conteúdo</span>
+                {contextReady && (
+                  <button onClick={fetchSuggestions} disabled={loadingSuggestions} style={{
+                    display:"flex", alignItems:"center", gap:7, padding:"6px 14px",
+                    border:`1px solid ${AB.goldDim}`, background:"transparent",
+                    color:AB.gold, fontSize:10, fontWeight:600,
+                    cursor: loadingSuggestions ? "not-allowed" : "pointer",
+                    fontFamily:AB.fontMono, letterSpacing:"0.1em", textTransform:"uppercase",
+                    opacity: loadingSuggestions ? 0.5 : 1,
+                  }}>
+                    {loadingSuggestions
+                      ? <><div style={{ width:10, height:10, border:`1.5px solid ${AB.goldDim}`, borderTopColor:AB.gold, borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />Gerando...</>
+                      : <>✦ Sugerir ideias</>}
+                  </button>
+                )}
+              </div>
+
+              {showSuggestions && suggestions && (
+                <div className="slide-down" style={{ marginBottom:24 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+                    <div>
+                      <p style={{ margin:0, fontSize:10, fontWeight:700, color:AB.gold, fontFamily:AB.fontMono, letterSpacing:"0.14em", textTransform:"uppercase" }}>✦ 4 ideias para o seu segmento</p>
+                      <p style={{ margin:"4px 0 0", fontSize:12, color:AB.creamMute, fontFamily:AB.fontSans }}>Escolha uma como base ou escreva a sua própria abaixo.</p>
+                    </div>
+                    <button onClick={() => { setShowSuggestions(false); setSelectedSuggestion(null); }} style={{ background:"transparent", border:"none", color:AB.creamMute, fontSize:18, lineHeight:1, padding:"0 4px" }}>×</button>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    {suggestions.map((idea,i) => (
+                      <IdeaCard key={i} idea={idea} index={i} selected={selectedSuggestion?.titulo===idea.titulo} onSelect={applySuggestion} />
+                    ))}
+                  </div>
+                  {selectedSuggestion && (
+                    <div style={{ marginTop:10, padding:"12px 16px", background:AB.goldPale, border:`1px solid ${AB.goldDim}`, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ width:18, height:18, borderRadius:"50%", background:AB.gold, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <span style={{ color:AB.bg, fontSize:10, fontWeight:700 }}>✓</span>
+                        </div>
+                        <span style={{ fontSize:12, color:AB.gold, fontFamily:AB.fontSans }}>Ideia aplicada — confira e edite o campo abaixo se quiser</span>
+                      </div>
+                      <button onClick={useOwnIdea} style={{ background:"transparent", border:"none", color:AB.creamMute, fontSize:11, fontFamily:AB.fontMono, textDecoration:"underline", flexShrink:0 }}>usar minha ideia</button>
+                    </div>
+                  )}
+                  <div style={{ marginTop:8, height:1, background:AB.divider }} />
+                </div>
+              )}
+
+              <TextInput
+                label={selectedSuggestion ? "✦ Ideia selecionada — edite à vontade *" : "Ideia central do vídeo *"}
+                placeholder="Ex: A decisão que transformou minha marcenaria num negócio de R$100M — e que eu tomei sem saber o que estava fazendo"
+                value={data.idea}
+                onChange={v => { set("idea",v); if (selectedSuggestion && v !== `${selectedSuggestion.titulo}\n\n${selectedSuggestion.descricao}`) setSelectedSuggestion(null); }}
+                multiline rows={5}
+                hint={selectedSuggestion ? "Preenchida com a sugestão. O roteiro será gerado a partir desta ideia." : "Seja específico: história real, erro concreto, resultado com número."}
+              />
+
+              <div style={{ marginBottom:22 }}>
+                <label style={{ display:"block", fontSize:11, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:AB.gold, marginBottom:12, fontFamily:AB.fontMono }}>Formato do roteiro</label>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                  {FORMATS.map(f => (
+                    <div key={f.id} onClick={() => set("format",f.id)} style={{ padding:"11px 14px", cursor:"pointer", background: data.format===f.id ? AB.goldPale : "rgba(255,255,255,0.02)", border:`1px solid ${data.format===f.id ? AB.gold : AB.divider}` }}>
+                      <div style={{ fontSize:14, fontWeight:600, color: data.format===f.id ? AB.gold : AB.cream }}>{f.label}</div>
+                      <div style={{ fontSize:12, color:AB.creamMute, marginTop:2 }}>{f.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <TextInput label="Recompensa emocional que o vídeo entrega" placeholder="Ex: Alívio — perceber que não era falta de competência, era falta de posicionamento" value={data.emotion} onChange={v => set("emotion",v)} hint="Sem emoção, não há retenção. O que a pessoa vai sentir ao terminar de assistir?" />
+            </Card>
+
+            <Card>
+              <SectionLabel number="03">Ação & Objetivo</SectionLabel>
+              <div style={{ marginBottom:20 }}>
+                <label style={{ display:"block", fontSize:11, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:AB.gold, marginBottom:12, fontFamily:AB.fontMono }}>CTA principal — qual ação pedir?</label>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                  {CTAS.map(c => <Tag key={c} active={data.cta===c} onClick={() => set("cta",c)}>{c}</Tag>)}
+                </div>
+              </div>
+              <TextInput label="Objetivo de negócio por trás do CTA" placeholder="Ex: Captação para a próxima turma da mentoria — link na bio leva à página de aplicação" value={data.ctaDetail} onChange={v => set("ctaDetail",v)} multiline rows={3} hint="A IA integra esse objetivo de forma natural no fechamento, sem soar como venda forçada." />
+            </Card>
+
+            {error && (
+              <div style={{ background:AB.dangerBg, border:`1px solid ${AB.dangerBorder}`, padding:"12px 16px", marginBottom:16, borderRadius:2 }}>
+                <p style={{ margin:0, fontSize:13, color:"#E74C3C", fontFamily:AB.fontSans }}>{error}</p>
+              </div>
+            )}
+
+            <PrimaryButton onClick={generate} disabled={loading} loading={loading} loadingText="Gerando roteiro...">
+              ✦ Gerar Roteiro com IA
+            </PrimaryButton>
+          </div>
+        )}
+
+        {/* ══ ROTEIRO ══ */}
+        {stage==="roteiro" && script && (
+          <div className="fade-up">
+            <div style={{ marginBottom:32 }}>
+              <p style={{ fontSize:9, fontWeight:600, color:AB.goldDim, letterSpacing:"0.18em", textTransform:"uppercase", margin:"0 0 6px", fontFamily:AB.fontMono }}>
+                {FORMATS.find(f => f.id===data.format)?.label} · {data.niche || "Roteiro"}
+              </p>
+              <h1 style={{ fontSize:30, fontWeight:400, color:AB.cream, margin:"0 0 6px", fontFamily:AB.fontSerif, fontStyle:"italic", lineHeight:1.2 }}>{script.titulo || "Seu roteiro"}</h1>
+              <p style={{ fontSize:14, color:AB.creamDim, margin:"0 0 20px", fontFamily:AB.fontSans }}>
+                {updatedBlocks.length > 0 ? `Revisados: ${updatedBlocks.join(", ")} — confira as mudanças` : "Clique em EDITAR em qualquer bloco para ajustar"}
+              </p>
+              <Divider />
+            </div>
+
+            <ScriptBlock label="A — ATENÇÃO · Abertura (0–3 seg)" accentKey="abertura" icon="◆" content={script.abertura} onEdit={v => setScriptField("abertura",v)} highlight={updatedBlocks.includes("abertura")} />
+            <div style={{ paddingLeft:14, borderLeft:`1px dashed ${AB.divider}`, marginBottom:4 }}>
+              <p style={{ fontSize:10, color:AB.creamMute, fontFamily:AB.fontMono, letterSpacing:"0.06em", margin:"4px 0 4px 10px" }}>↓ I+D — ritmo a cada 2–3s · tangibilização · história espelho</p>
+            </div>
+            <ScriptBlock label="I+D — INTERESSE & DESEJO · Desenvolvimento" accentKey="desenvolvimento" icon="◇" content={script.desenvolvimento} onEdit={v => setScriptField("desenvolvimento",v)} highlight={updatedBlocks.includes("desenvolvimento")} />
+            <div style={{ paddingLeft:14, borderLeft:`1px dashed ${AB.divider}`, marginBottom:4 }}>
+              <p style={{ fontSize:10, color:AB.creamMute, fontFamily:AB.fontMono, letterSpacing:"0.06em", margin:"4px 0 4px 10px" }}>↓ A — fechamento e próximo passo</p>
+            </div>
+            <ScriptBlock label="A — AÇÃO · Fechamento + CTA" accentKey="fechamento" icon="○" content={script.fechamento} onEdit={v => setScriptField("fechamento",v)} highlight={updatedBlocks.includes("fechamento")} />
+
+            <Card style={{ marginTop:8 }}>
+              <p style={{ fontSize:9, fontWeight:700, color:AB.gold, letterSpacing:"0.14em", textTransform:"uppercase", margin:"0 0 12px", fontFamily:AB.fontMono }}>Protocolo de Edição</p>
+              {["Corte na batida da música — ritmo é retenção","Legendas grandes: +30% assiste sem som, não é opcional","Siga as indicações de tela do roteiro — tangibilize tudo","Final que convida o replay aumenta a retenção","Teste: assista sem som — ainda prende atenção?"].map((t,i) => (
+                <p key={i} style={{ margin:"0 0 8px", fontSize:14, color:AB.creamDim, fontFamily:AB.fontSans, lineHeight:1.55, display:"flex", alignItems:"flex-start", gap:8 }}>
+                  <span style={{ color:AB.gold, flexShrink:0, marginTop:1 }}>—</span>{t}
+                </p>
+              ))}
+            </Card>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:4 }}>
+              <button onClick={generate} disabled={loading} style={{ padding:"15px", border:`1px solid ${AB.divider}`, background:"transparent", color:AB.creamMute, fontSize:11, fontWeight:600, fontFamily:AB.fontMono, letterSpacing:"0.1em", textTransform:"uppercase" }}>
+                {loading ? "Gerando..." : "↺ Nova versão"}
+              </button>
+              <button onClick={() => { setUpdatedBlocks([]); setStage("checklist"); }} style={{ padding:"15px", border:`1px solid ${AB.gold}`, background:AB.goldPale, color:AB.gold, fontSize:11, fontWeight:600, fontFamily:AB.fontMono, letterSpacing:"0.1em", textTransform:"uppercase" }}>
+                Aplicar Checklist ✦
+              </button>
+            </div>
+          </div>
+        )}
+
+        {stage==="roteiro" && !script && (
+          <div className="fade-up" style={{ textAlign:"center", padding:"70px 0" }}>
+            <p style={{ fontSize:32, color:AB.goldDim, fontFamily:AB.fontSerif, fontStyle:"italic", marginBottom:12 }}>◆</p>
+            <p style={{ color:AB.creamMute, fontFamily:AB.fontSans, fontSize:13 }}>Preencha o contexto primeiro para gerar seu roteiro.</p>
+            <button onClick={() => setStage("contexto")} style={{ marginTop:20, padding:"10px 22px", border:`1px solid ${AB.divider}`, background:"transparent", color:AB.gold, fontSize:11, fontFamily:AB.fontMono, letterSpacing:"0.1em", textTransform:"uppercase" }}>← Voltar ao contexto</button>
+          </div>
+        )}
+
+        {/* ══ CHECKLIST ══ */}
+        {stage==="checklist" && (
+          <div className="fade-up">
+            <div style={{ marginBottom:32 }}>
+              <p style={{ fontSize:9, fontWeight:600, color:AB.gold, letterSpacing:"0.18em", textTransform:"uppercase", margin:"0 0 10px", fontFamily:AB.fontMono }}>Antes de postar</p>
+              <h1 style={{ fontSize:36, fontWeight:400, color:AB.cream, margin:"0 0 10px", fontFamily:AB.fontSerif, fontStyle:"italic" }}>Checklist de Viralização</h1>
+              <Divider />
+              <p style={{ fontSize:15, color:AB.creamDim, margin:"0 0 22px", lineHeight:1.65 }}>Responda SIM ou NÃO para cada critério. Se houver NÃOs, a IA revisa automaticamente os blocos correspondentes.</p>
+              <div style={{ height:2, background:"rgba(255,255,255,0.06)", marginBottom:6 }}>
+                <div style={{ height:"100%", width:`${progressPct}%`, background: allPassed ? AB.success : failedItems.length>0&&allAnswered ? AB.danger : AB.gold, transition:"width 0.4s ease, background 0.4s" }} />
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, color:AB.creamMute, fontFamily:AB.fontMono }}>{answeredCount} de {CHECKLIST_ITEMS.length} respondidos</span>
+                {allAnswered && <span style={{ fontSize:12, fontWeight:700, fontFamily:AB.fontMono, color: allPassed ? "#5A9668" : "#D94F4F" }}>{allPassed ? "✓ Aprovado" : `${failedItems.length} item${failedItems.length>1?"s":""} para revisar`}</span>}
+              </div>
+            </div>
+
+            {CHECKLIST_ITEMS.map(item => (
+              <CheckItem key={item.id} item={item} answer={answers[item.id]??null} onChange={v => setAnswer(item.id,v)} />
+            ))}
+
+            <div style={{ background:"rgba(201,179,122,0.04)", border:`1px solid ${AB.divider}`, padding:"20px 22px", marginTop:20 }}>
+              <p style={{ fontSize:9, fontWeight:700, color:AB.gold, letterSpacing:"0.14em", textTransform:"uppercase", margin:"0 0 10px", fontFamily:AB.fontMono }}>✦ Protocolo semanal de repertório</p>
+              <p style={{ fontSize:14, color:AB.creamDim, margin:0, lineHeight:1.8, fontFamily:AB.fontSans }}>
+                1x por semana: escolha 3 Reels com mais de 10k likes no seu nicho. Para cada um: <em style={{ color:AB.cream }}>Onde a atenção se perde?</em> · <em style={{ color:AB.cream }}>Que emoção provoca?</em> · <em style={{ color:AB.cream }}>Qual a recompensa no final?</em> Salve no Notion. Use a estrutura — não copie, adapte para o seu contexto.
+              </p>
+            </div>
+
+            {error && (
+              <div style={{ background:AB.dangerBg, border:`1px solid ${AB.dangerBorder}`, padding:"12px 16px", marginTop:14, borderRadius:2 }}>
+                <p style={{ margin:0, fontSize:13, color:"#E74C3C", fontFamily:AB.fontSans }}>{error}</p>
+              </div>
+            )}
+
+            <div style={{ marginTop:18, display:"flex", flexDirection:"column", gap:10 }}>
+              {canRevise && (
+                <PrimaryButton onClick={revise} disabled={revising} loading={revising} loadingText="Revisando com a metodologia...">
+                  ✦ Atualizar roteiro — {failedItems.length} bloco{failedItems.length>1?"s":""} para corrigir
+                </PrimaryButton>
+              )}
+              {allPassed && (
+                <div style={{ background:AB.successBg, border:`1px solid ${AB.successBorder}`, padding:"16px 20px", display:"flex", alignItems:"center", gap:12, borderRadius:2 }}>
+                  <span style={{ color:"#4E7A5A", fontSize:18 }}>✦</span>
+                  <div>
+                    <p style={{ margin:0, fontSize:14, fontWeight:600, color:"#5A9668", fontFamily:AB.fontSans }}>Roteiro aprovado no checklist</p>
+                    <p style={{ margin:"3px 0 0", fontSize:13, color:AB.creamMute, fontFamily:AB.fontSans }}>Todos os critérios foram atendidos. Seu Reel está pronto para gravar.</p>
+                  </div>
+                </div>
+              )}
+              {!allAnswered && (
+                <div style={{ border:`1px solid ${AB.divider}`, padding:"13px 16px", display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ width:6, height:6, borderRadius:"50%", background:AB.gold, animation:"pulse 1.5s ease infinite", flexShrink:0 }} />
+                  <p style={{ margin:0, fontSize:13, color:AB.creamMute, fontFamily:AB.fontSans }}>Responda todos os {CHECKLIST_ITEMS.length} itens para habilitar a revisão automática.</p>
+                </div>
+              )}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                <button onClick={() => setStage("roteiro")} style={{ padding:"14px", border:`1px solid ${AB.divider}`, background:"transparent", color:AB.creamMute, fontSize:10, fontWeight:600, fontFamily:AB.fontMono, letterSpacing:"0.1em", textTransform:"uppercase" }}>← Ver Roteiro</button>
+                <button onClick={reset} style={{ padding:"14px", border:`1px solid ${AB.divider}`, background:"transparent", color:AB.creamMute, fontSize:10, fontWeight:600, fontFamily:AB.fontMono, letterSpacing:"0.1em", textTransform:"uppercase" }}>✦ Novo Roteiro</button>
+              </div>
+            </div>
+
+            <div style={{ marginTop:44, textAlign:"center", borderTop:`1px solid ${AB.divider}`, paddingTop:24 }}>
+              <p style={{ margin:0, fontSize:16, fontFamily:AB.fontSerif, fontStyle:"italic", color:AB.goldDim, letterSpacing:"0.04em" }}>Arch Brands®</p>
+              <p style={{ margin:"4px 0 0", fontSize:10, color:AB.creamMute, fontFamily:AB.fontMono, letterSpacing:"0.1em" }}>MARCAS INCONFUNDÍVEIS</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
